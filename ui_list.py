@@ -12,9 +12,8 @@ class ListWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Pages")
-        self.resize(700, 450)
-
-        self.page_windows = {}  # page_id -> window（GC対策）
+        self.resize(750, 450)
+        self.page_windows = {}
 
         root = QWidget()
         self.setCentralWidget(root)
@@ -33,8 +32,8 @@ class ListWindow(QMainWindow):
         top.addWidget(self.reload_btn)
         layout.addLayout(top)
 
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["ID", "タイトル", "更新日時", "操作"])
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["ID", "タイトル", "更新日時", "メモ数", "操作"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -48,19 +47,23 @@ class ListWindow(QMainWindow):
         rows = list_pages()
         self.table.setRowCount(0)
 
-        for r, (page_id, title, updated_at) in enumerate(rows):
+        for r, (page_id, title, updated_at, memo_count) in enumerate(rows):
             self.table.insertRow(r)
             self.table.setItem(r, 0, QTableWidgetItem(str(page_id)))
             self.table.setItem(r, 1, QTableWidgetItem(title or ""))
 
             dt_text = updated_at.strftime("%Y-%m-%d %H:%M:%S") if updated_at else ""
-            item = QTableWidgetItem(dt_text)
-            item.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(r, 2, item)
+            it = QTableWidgetItem(dt_text)
+            it.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(r, 2, it)
+
+            it2 = QTableWidgetItem(str(memo_count))
+            it2.setTextAlignment(Qt.AlignCenter)
+            self.table.setItem(r, 3, it2)
 
             del_btn = QPushButton("削除")
             del_btn.clicked.connect(lambda _, pid=page_id: self.on_delete(pid))
-            self.table.setCellWidget(r, 3, del_btn)
+            self.table.setCellWidget(r, 4, del_btn)
 
     def on_create(self):
         title = self.new_title.text().strip()
@@ -73,7 +76,7 @@ class ListWindow(QMainWindow):
         self.open_page(page_id)
 
     def on_delete(self, page_id: int):
-        ret = QMessageBox.question(self, "確認", "このページを削除しますか？")
+        ret = QMessageBox.question(self, "確認", "このページを削除しますか？（中のメモも消えます）")
         if ret == QMessageBox.Yes:
             if page_id in self.page_windows:
                 self.page_windows[page_id].close()
@@ -92,7 +95,7 @@ class ListWindow(QMainWindow):
             w.activateWindow()
             return
 
-        w = PageWindow(page_id, on_saved=self.reload)
+        w = PageWindow(page_id, on_changed=self.reload)
         w.destroyed.connect(lambda _: self.page_windows.pop(page_id, None))
         self.page_windows[page_id] = w
         w.show()
