@@ -4,6 +4,8 @@ from PySide6.QtWidgets import QApplication
 from db import init_db
 from ui import MainWindow
 
+# main
+
 
 def main():
     init_db()
