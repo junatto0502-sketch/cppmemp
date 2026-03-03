@@ -10,8 +10,6 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS memos (
                     id BIGSERIAL PRIMARY KEY,
                     title TEXT NOT NULL,
-                    username TEXT,
-                    password TEXT,
                     url TEXT,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
                 )
@@ -23,19 +21,19 @@ def fetch_all():
     with psycopg.connect(DSN) as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, title, username, password, url
+                SELECT id, title, url
                 FROM memos
                 ORDER BY id DESC
             """)
             return cur.fetchall()
 
 
-def insert_memo(title, username, password, url):
+def insert_memo(title, url):
     with psycopg.connect(DSN) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO memos(title, username, password, url) VALUES(%s,%s,%s,%s)",
-                (title, username, password, url),
+                "INSERT INTO memos(title, url) VALUES(%s,%s)",
+                (title, url),
             )
         conn.commit()
 
@@ -51,7 +49,7 @@ def fetch_one(memo_id: int):
     with psycopg.connect(DSN) as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT title, username, password, url FROM memos WHERE id = %s",
+                "SELECT title, url FROM memos WHERE id = %s",
                 (memo_id,),
             )
             return cur.fetchone()
