@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QTextEdit, QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QHeaderView, QLabel, QApplication
 )
@@ -10,24 +10,27 @@ from db import (
     list_memos, create_memo, delete_memo, get_memo, update_memo
 )
 
-class PageWindow(QMainWindow):
-    def __init__(self, page_id: int, on_changed=None):
+class PageView(QWidget):
+    def __init__(self, on_back, on_changed=None):
         super().__init__()
-        self.page_id = page_id
+        self.on_back = on_back
         self.on_changed = on_changed
+        self.page_id = None
+        self.selected_memo_id = None
 
-        self.resize(900, 650)
+        layout = QVBoxLayout(self)
 
-        root = QWidget()
-        self.setCentralWidget(root)
-        layout = QVBoxLayout(root)
-
-        # page title
+        # top: back + page title
         top = QHBoxLayout()
+        self.back_btn = QPushButton("← 一覧へ")
+        self.back_btn.clicked.connect(self.on_back)
+
         self.page_title = QLineEdit()
         self.page_title.setPlaceholderText("ページタイトル（必須）")
         self.save_page_title_btn = QPushButton("ページ名保存")
         self.save_page_title_btn.clicked.connect(self.save_page_title)
+
+        top.addWidget(self.back_btn)
         top.addWidget(QLabel("ページ"))
         top.addWidget(self.page_title, 1)
         top.addWidget(self.save_page_title_btn)
@@ -48,7 +51,7 @@ class PageWindow(QMainWindow):
         form.addWidget(self.add_btn)
         layout.addLayout(form)
 
-        # memos table
+        # memos
         self.table = QTableWidget(0, 4)
         self.table.setHorizontalHeaderLabels(["ID", "タイトル", "内容（クリックでコピー）", "操作"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -58,7 +61,7 @@ class PageWindow(QMainWindow):
         self.table.cellClicked.connect(self.on_cell_clicked)
         layout.addWidget(self.table, 1)
 
-        # edit selected memo (optional, minimal)
+        # edit selected memo
         edit = QHBoxLayout()
         self.edit_id = QLabel("選択: -")
         self.edit_title = QLineEdit()
@@ -68,14 +71,21 @@ class PageWindow(QMainWindow):
         self.edit_body.setFixedHeight(110)
         self.save_memo_btn = QPushButton("選択メモ保存")
         self.save_memo_btn.clicked.connect(self.on_save_selected)
+
         edit.addWidget(self.edit_id)
         edit.addWidget(self.edit_title, 2)
         edit.addWidget(self.edit_body, 5)
         edit.addWidget(self.save_memo_btn)
         layout.addLayout(edit)
 
+    def set_page(self, page_id: int):
+        self.page_id = page_id
         self.selected_memo_id = None
-
+        self.edit_id.setText("選択: -")
+        self.edit_title.clear()
+        self.edit_body.clear()
+        self.memo_title.clear()
+        self.memo_body.clear()
         self.load_page()
         self.reload()
 
@@ -83,11 +93,10 @@ class PageWindow(QMainWindow):
         row = get_page(self.page_id)
         if not row:
             QMessageBox.warning(self, "エラー", "ページが見つかりません。")
-            self.close()
+            self.on_back()
             return
         _, title = row
         self.page_title.setText(title)
-        self.setWindowTitle(f"Page: {title}")
 
     def reload(self):
         rows = list_memos(self.page_id)
@@ -108,19 +117,15 @@ class PageWindow(QMainWindow):
             QMessageBox.warning(self, "入力エラー", "ページタイトルは必須です。")
             return
         update_page_title(self.page_id, title)
-        self.setWindowTitle(f"Page: {title}")
-        self.statusBar().showMessage("ページ名を保存しました", 1200)
         if self.on_changed:
             self.on_changed()
 
     def on_add(self):
         title = self.memo_title.text().strip()
         body = self.memo_body.toPlainText()
-
         if not title:
             QMessageBox.warning(self, "入力エラー", "メモタイトルは必須です。")
             return
-
         create_memo(self.page_id, title, body)
         self.memo_title.clear()
         self.memo_body.clear()
@@ -144,14 +149,13 @@ class PageWindow(QMainWindow):
     def on_cell_clicked(self, row: int, col: int):
         memo_id = int(self.table.item(row, 0).text())
 
-        # 内容クリックでコピー（従来挙動）
+        # 内容クリックでコピー
         if col == 2:
             txt = self.table.item(row, 2).text()
             if txt:
                 QApplication.clipboard().setText(txt)
-                self.statusBar().showMessage("内容をコピーしました", 1200)
 
-        # 行選択で下の編集欄にロード
+        # 選択メモを下にロード
         self.selected_memo_id = memo_id
         memo = get_memo(memo_id)
         if memo:
@@ -164,15 +168,12 @@ class PageWindow(QMainWindow):
         if not self.selected_memo_id:
             QMessageBox.information(self, "情報", "編集するメモを選択してください。")
             return
-
         title = self.edit_title.text().strip()
         body = self.edit_body.toPlainText()
         if not title:
             QMessageBox.warning(self, "入力エラー", "メモタイトルは必須です。")
             return
-
         update_memo(self.selected_memo_id, title, body)
         self.reload()
-        self.statusBar().showMessage("メモを保存しました", 1200)
         if self.on_changed:
             self.on_changed()

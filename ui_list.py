@@ -1,23 +1,17 @@
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QHeaderView
 )
 from PySide6.QtCore import Qt
-
 from db import list_pages, create_page, delete_page
-from ui_page import PageWindow
 
-class ListWindow(QMainWindow):
-    def __init__(self):
+class ListView(QWidget):
+    def __init__(self, on_open_page):
         super().__init__()
-        self.setWindowTitle("Pages")
-        self.resize(750, 450)
-        self.page_windows = {}
+        self.on_open_page = on_open_page
 
-        root = QWidget()
-        self.setCentralWidget(root)
-        layout = QVBoxLayout(root)
+        layout = QVBoxLayout(self)
 
         top = QHBoxLayout()
         self.new_title = QLineEdit()
@@ -73,29 +67,14 @@ class ListWindow(QMainWindow):
         page_id = create_page(title)
         self.new_title.clear()
         self.reload()
-        self.open_page(page_id)
+        self.on_open_page(page_id)  # 作ったらそのまま遷移
 
     def on_delete(self, page_id: int):
         ret = QMessageBox.question(self, "確認", "このページを削除しますか？（中のメモも消えます）")
         if ret == QMessageBox.Yes:
-            if page_id in self.page_windows:
-                self.page_windows[page_id].close()
-                self.page_windows.pop(page_id, None)
             delete_page(page_id)
             self.reload()
 
     def on_open_by_doubleclick(self, row: int, col: int):
         page_id = int(self.table.item(row, 0).text())
-        self.open_page(page_id)
-
-    def open_page(self, page_id: int):
-        if page_id in self.page_windows:
-            w = self.page_windows[page_id]
-            w.raise_()
-            w.activateWindow()
-            return
-
-        w = PageWindow(page_id, on_changed=self.reload)
-        w.destroyed.connect(lambda _: self.page_windows.pop(page_id, None))
-        self.page_windows[page_id] = w
-        w.show()
+        self.on_open_page(page_id)
