@@ -10,7 +10,7 @@ from db import fetch_all, insert_memo, delete_memo, fetch_one
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("URL Memo (PySide6 + PostgreSQL)")
+        self.setWindowTitle("CppMemo")
         self.resize(800, 500)
 
         root = QWidget()
